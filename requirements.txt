@@ -2,8 +2,3 @@ flask
 tweepy
 leaderboard
 gunicorn
-cryptography
-libffi
-
-# tired of inscure platform
-ndg-httpsclient
