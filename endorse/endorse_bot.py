@@ -6,6 +6,7 @@ import tweepy
 import datetime
 from leaderboard.leaderboard import Leaderboard
 import json
+import ast
 
 class EndorseBot(object):
 
@@ -18,6 +19,7 @@ class EndorseBot(object):
         # time stuff
         self.since_id = -1
         self.days_back = days_back
+        self.last_run = None
 
         # Create authentication token
         self.auth = tweepy.OAuthHandler(self.key, self.secret)
@@ -36,55 +38,68 @@ class EndorseBot(object):
 
     def build_leaderboard(self):
 
-        if self.since_id != -1:       
-            for res in tweepy.Cursor(self.api.search, since_id=self.since_id, 
-                                     q=self.query).items():
+        if self.last_run != None:
+            time_diff = (datetime.datetime.now() - self.last_run).total_seconds()
 
-                text = res.text
-                followers = res.author.followers_count
-                author = res.author.screen_name
-                created_at = res.created_at
-                tweet_id = res.id
+            # 15 min update
+            if time_diff >= (60 * 15):
+                self.last_run = datetime.datetime.now()
+                return self.get_leaderboard()
+        try:
+            if self.since_id != -1:
+                for res in tweepy.Cursor(self.api.search, since_id=self.since_id, 
+                                         q=self.query).items():
 
-                data = {
-                    'author': author,
-                    'text': text,
-                    'tweet_id': tweet_id
-                }
+                    text = res.text
+                    followers = res.author.followers_count
+                    author = res.author.screen_name
+                    created_at = res.created_at
+                    tweet_id = res.id
 
-                time_diff = datetime.datetime.now() - res.created_at
+                    data = {
+                        'author': author,
+                        'text': text,
+                        'tweet_id': tweet_id
+                    }
 
-                if time_diff.days == self.days_back:
-                    self.since_id = tweet_id
+                    time_diff = datetime.datetime.now() - res.created_at
+
+                    if time_diff.days == self.days_back:
+                        self.since_id = tweet_id
+                        self.add_tweet(followers, data)
+                        break
+
                     self.add_tweet(followers, data)
-                    break
+            else:
+                for res in tweepy.Cursor(self.api.search, since_id=self.since_id, 
+                                         q=self.query).items():
 
-                self.add_tweet(followers, data)
-        else:
-            for res in tweepy.Cursor(self.api.search, since_id=self.since_id, 
-                                     q=self.query).items():
+                    text = res.text
+                    followers = res.author.followers_count
+                    author = res.author.screen_name
+                    created_at = res.created_at
+                    tweet_id = res.id
 
-                text = res.text
-                followers = res.author.followers_count
-                author = res.author.screen_name
-                created_at = res.created_at
-                tweet_id = res.id
+                    data = {
+                        'author': author,
+                        'text': text,
+                        'tweet_id': tweet_id
+                    }
 
-                data = {
-                    'author': author,
-                    'text': text,
-                    'tweet_id': tweet_id
-                }
+                    time_diff = datetime.datetime.now() - res.created_at
 
-                time_diff = datetime.datetime.now() - res.created_at
+                    if time_diff.days == self.days_back:
+                        self.since_id = tweet_id
+                        self.add_tweet(followers, data)
+                        break
 
-                if time_diff.days == self.days_back:
-                    self.since_id = tweet_id
                     self.add_tweet(followers, data)
-                    break
 
-                self.add_tweet(followers, data)
+        except tweepy.TweepError:
+            self.last_run = datetime.datetime.now()
+            return self.get_leaderboard()
 
+        self.last_run = datetime.datetime.now()
         return self.get_leaderboard()
 
     def add_tweet(self, followers, data):
@@ -113,12 +128,10 @@ class EndorseBot(object):
         for i in range(1,count):
             
             tweet = self.leaderboard.member_at(i)
-            text_data = self.leaderboard.member_data_for(tweet['tweet'])
+            data = ast.literal_eval(self.leaderboard.member_data_for(tweet['tweet']))
 
-            data = {}
             data['rank'] = tweet['rank']
             data['followers'] = tweet['followers']
-            data['text'] = text_data
 
             result.append(data)
 

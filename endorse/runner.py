@@ -4,7 +4,6 @@ import os
 
 import tweepy
 from flask import Flask, current_app, json
-from task_factory import make_celery
 from endorse_bot import EndorseBot
 
 consumer_key = os.environ['TWITTER_API_CONSUMER']

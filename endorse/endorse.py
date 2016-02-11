@@ -10,7 +10,6 @@ import os
 
 import tweepy
 from flask import Flask, current_app, json
-from task_factory import make_celery
 from endorse_bot import EndorseBot
 
 log = logging.getLogger(__name__)
@@ -40,22 +39,10 @@ def main():
     log.info("BOT: %s", str(bot))
     
     app = Flask(__name__)
-    app.config.update(
-        CELERY_BROKER_URL='redis://localhost:6379',
-        CELERY_RESULT_BACKEND='redis://localhost:6379'
-    )
-
-    celery = make_celery(app)
-
-    @celery.task()
-    def leaderboard(bot):
-        return bot.build_leaderboard()
-
-    lb = leaderboard.delay(bot) 
 
     @app.route('/')
-    def get_leaderboard(bot):
-        return json.dumps(bot.get_leaderboard())    
+    def get_leaderboard():
+        return json.dumps(bot.build_leaderboard())    
 
     app.run(debug=True)
 
