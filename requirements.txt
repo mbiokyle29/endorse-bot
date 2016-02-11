@@ -1,6 +1,7 @@
 flask
 tweepy
 leaderboard
+gunicron
 
 # tired of inscure platform
 ndg-httpsclient

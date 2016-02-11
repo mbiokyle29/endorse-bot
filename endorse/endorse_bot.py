@@ -51,6 +51,10 @@ class EndorseBot(object):
                                          q=self.query).items():
 
                     text = res.text
+
+                    if "RT" in text:
+                        continue
+
                     followers = res.author.followers_count
                     author = res.author.screen_name
                     created_at = res.created_at
