@@ -32,7 +32,7 @@ class EndorseBot(object):
         self.leaderboard_size = leaderboard_size
 
     def __repr__(self):
-        return "<EndorseBot| query:{} | daysback: {}| size: {}>".format(
+        return "< EndorseBot| query:{} | daysback: {}| size: {} >".format(
             self.query, self.days_back, self.leaderboard_size)
 
     def build_leaderboard(self):
@@ -89,6 +89,9 @@ class EndorseBot(object):
                     author = res.author.screen_name
                     created_at = res.created_at
                     tweet_id = res.id
+
+                    if "RT" in text:
+                        continue
 
                     tweet = {
                         'followers': followers,
