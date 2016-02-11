@@ -1,4 +1,7 @@
+flask
 tweepy
+celery
+leaderboard
 
 # tired of inscure platform
 ndg-httpsclient
