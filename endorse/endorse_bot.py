@@ -5,6 +5,7 @@ author: @mbiokyle29
 import tweepy
 import datetime
 from leaderboard.leaderboard import Leaderboard
+import json
 
 class EndorseBot(object):
 
@@ -35,7 +36,7 @@ class EndorseBot(object):
 
     def build_leaderboard(self):
 
-        if since_id != -1:       
+        if self.since_id != -1:       
             for res in tweepy.Cursor(self.api.search, since_id=self.since_id, 
                                      q=self.query).items():
 
@@ -89,7 +90,7 @@ class EndorseBot(object):
     def add_tweet(self, followers, data):
 
         # check if we are at capacity
-        if self.leaderboard_index == self.leaderboard_size:
+        if (self.leaderboard_index+1) == self.leaderboard_size:
             last = self.leaderboard.member_at(self.leaderboard_size)
 
             if last['followers'] < followers:
@@ -111,12 +112,14 @@ class EndorseBot(object):
 
         for i in range(1,count):
             
-            tweet = self.leaderborad.member_at(i)
-            data = self.leaderboard.member_data_for(tweet['tweet'])
+            tweet = self.leaderboard.member_at(i)
+            text_data = self.leaderboard.member_data_for(tweet['tweet'])
 
+            data = {}
             data['rank'] = tweet['rank']
             data['followers'] = tweet['followers']
+            data['text'] = text_data
 
-            result.append(count)
+            result.append(data)
 
         return result
