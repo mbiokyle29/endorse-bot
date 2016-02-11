@@ -7,19 +7,19 @@ import datetime
 import json
 import bisect
 import logging
+from endorse import Tweet
 
 log = logging.getLogger(__name__)
 
 class EndorseBot(object):
 
-    def __init__(self, key, secret, query, days_back, leaderboard_size):
+    def __init__(self, key, secret, query, days_back, leaderboard_size, session):
 
         self.key = key
         self.secret = secret
         self.query = query
         
         # time stuff
-        self.since_id = -1
         self.days_back = days_back
         self.last_run = None
 
@@ -28,14 +28,10 @@ class EndorseBot(object):
         self.api = tweepy.API(self.auth)
 
         # data storage
-        self.leaderboard = []
+        self.session = session
         self.leaderboard_size = leaderboard_size
 
-    def __repr__(self):
-        return "< EndorseBot| query:{} | daysback: {}| size: {} >".format(
-            self.query, self.days_back, self.leaderboard_size)
-
-    def build_leaderboard(self):
+    def work(self):
         
         log.info("leaderboard build starting")
         log.info("last build: %s", str(self.last_run))
@@ -49,88 +45,56 @@ class EndorseBot(object):
             if time_diff >= (60 * 15):
                 log.info("Not building, happened less than 15 mins ago")
                 self.last_run = datetime.datetime.now()
-                return self.leaderboard
+                return
+
         try:
-            if self.since_id != -1:
-                for res in tweepy.Cursor(self.api.search, since_id=self.since_id, 
-                                         q=self.query).items():
+            for res in tweepy.Cursor(self.api.search, q=self.query).items():
 
-                    text = res.text
+                text = res.text
 
-                    if "RT" in text:
-                        continue
+                # skip if a retweet
+                if "RT" in text:
+                    continue
 
-                    followers = res.author.followers_count
-                    author = res.author.screen_name
-                    created_at = res.created_at
-                    tweet_id = res.id
+                followers = res.author.followers_count
+                author = res.author.screen_name
+                created_at = res.created_at
+                tweet_id = res.id
 
-                    tweet = {
-                        'followers': followers,
-                        'author': author,
-                        'text': text,
-                        'tweet_id': tweet_id
-                    }
+                # skip if its in the DB already
+                if self.session.query(Tweet).get(tweet_id) is not None:
+                    return
 
-                    time_diff = datetime.datetime.now() - res.created_at
+                tweet = Tweet(tweet_id, text, followers, author)
 
-                    if time_diff.days == self.days_back:
-                        self.since_id = tweet_id
-                        self.add_tweet(tweet)
-                        break
-
+                time_diff = datetime.datetime.now() - res.created_at
+                if time_diff.days == self.days_back:
+                    self.since_id = tweet_id
                     self.add_tweet(tweet)
-            else:
-                for res in tweepy.Cursor(self.api.search, since_id=self.since_id, 
-                                         q=self.query).items():
+                    return
 
-                    text = res.text
-                    followers = res.author.followers_count
-                    author = res.author.screen_name
-                    created_at = res.created_at
-                    tweet_id = res.id
-
-                    if "RT" in text:
-                        continue
-
-                    tweet = {
-                        'followers': followers,
-                        'author': author,
-                        'text': text,
-                        'tweet_id': tweet_id
-                    }
-
-                    time_diff = datetime.datetime.now() - res.created_at
-
-                    if time_diff.days == self.days_back:
-                        self.since_id = tweet_id
-                        self.add_tweet(tweet)
-                        break
-
-                    self.add_tweet(tweet)
+                self.add_tweet(tweet)
 
         except tweepy.TweepError:
             log.info("Twitter useage cutoff -- sending what we have")
             self.last_run = datetime.datetime.now()
-            return self.leaderboard
+            return
 
         self.last_run = datetime.datetime.now()
-        return self.leaderboard
+        return
 
     def add_tweet(self, tweet):
 
-        # check if we are at capacity
-        if len(self.leaderboard) == self.leaderboard_size:
-            last = self.leaderboard[0]
+        # see if we need to remove
+        count = self.session.query(Tweet).count()
 
-            if last['followers'] < tweet['followers']:
-                self.leaderboard.pop(0)
-
-            # if its less than the bottom do nothing
+        if count == self.leaderboard_size:
+            lowest = self.session.query(Tweet).order_by(Tweet.followers).limit(1)
+            
+            if lowest.followers <= tweet.followers:
+                self.session.delete(lowest)
             else:
                 return
 
-        # add it
-        index_to_add = bisect.bisect(self.leaderboard, tweet['followers'])
-        self.leaderboard.insert(index_to_add, tweet)
-
+        self.session.add(tweet)
+        self.session.commit()

@@ -1,3 +1,5 @@
 flask
 tweepy
 gunicorn
+psycopg2
+flask_sqlalchemy
