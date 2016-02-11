@@ -37,8 +37,6 @@ db = SQLAlchemy(app)
 session = db.session
 
 from endorse.models import Tweet
-
-db.drop_all()
 db.create_all()
 
 from endorse.endorse_bot import EndorseBot
