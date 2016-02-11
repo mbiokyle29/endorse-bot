@@ -1,1 +1,1 @@
-web: gunicorn gettingstarted.wsgi --log-file - endorse:app
+web: gunicorn --log-file - endorse:app
