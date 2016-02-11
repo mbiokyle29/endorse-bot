@@ -4,9 +4,8 @@ author: @mbiokyle29
 """
 import tweepy
 import datetime
-from leaderboard.leaderboard import Leaderboard
 import json
-import ast
+import bisect
 
 class EndorseBot(object):
 
@@ -26,15 +25,8 @@ class EndorseBot(object):
         self.api = tweepy.API(self.auth)
 
         # data storage
-        self.leaderboard = Leaderboard("endorsements")
-        
-        # config
-        self.leaderboard.MEMBER_KEY = "tweet"
-        self.leaderboard.MEMBER_DATA_KEY = 'tweet_data'
-        self.leaderboard.SCORE_KEY = 'followers'
-        self.leaderboard.DEFAULT_GLOBAL_MEMBER_DATA = True
+        self.leaderboard = []
         self.leaderboard_size = leaderboard_size
-        self.leaderboard_index = 1
 
     def build_leaderboard(self):
 
@@ -44,7 +36,7 @@ class EndorseBot(object):
             # 15 min update
             if time_diff >= (60 * 15):
                 self.last_run = datetime.datetime.now()
-                return self.get_leaderboard()
+                return self.leaderboard
         try:
             if self.since_id != -1:
                 for res in tweepy.Cursor(self.api.search, since_id=self.since_id, 
@@ -60,7 +52,8 @@ class EndorseBot(object):
                     created_at = res.created_at
                     tweet_id = res.id
 
-                    data = {
+                    tweet = {
+                        'followers': followers,
                         'author': author,
                         'text': text,
                         'tweet_id': tweet_id
@@ -70,10 +63,10 @@ class EndorseBot(object):
 
                     if time_diff.days == self.days_back:
                         self.since_id = tweet_id
-                        self.add_tweet(followers, data)
+                        self.add_tweet(tweet)
                         break
 
-                    self.add_tweet(followers, data)
+                    self.add_tweet(tweet)
             else:
                 for res in tweepy.Cursor(self.api.search, since_id=self.since_id, 
                                          q=self.query).items():
@@ -84,7 +77,8 @@ class EndorseBot(object):
                     created_at = res.created_at
                     tweet_id = res.id
 
-                    data = {
+                    tweet = {
+                        'followers': followers,
                         'author': author,
                         'text': text,
                         'tweet_id': tweet_id
@@ -94,49 +88,32 @@ class EndorseBot(object):
 
                     if time_diff.days == self.days_back:
                         self.since_id = tweet_id
-                        self.add_tweet(followers, data)
+                        self.add_tweet(tweet)
                         break
 
-                    self.add_tweet(followers, data)
+                    self.add_tweet(tweet)
 
         except tweepy.TweepError:
             self.last_run = datetime.datetime.now()
-            return self.get_leaderboard()
+            return self.leaderboard
 
         self.last_run = datetime.datetime.now()
-        return self.get_leaderboard()
+        return self.leaderboard
 
-    def add_tweet(self, followers, data):
+    def add_tweet(self, tweet):
 
         # check if we are at capacity
-        if (self.leaderboard_index+1) == self.leaderboard_size:
-            last = self.leaderboard.member_at(self.leaderboard_size)
+        if len(self.leaderboard) == self.leaderboard_size:
+            last = self.leaderboard[0]
 
-            if last['followers'] < followers:
-                self.leaderboard.remove_member('tweet_{}'.format(str(self.leaderboard_index)))
-                self.leaderboard_index -= 1
+            if last['followers'] < tweet['followers']:
+                self.leaderboard.pop(0)
 
             # if its less than the bottom do nothing
             else:
                 return
 
         # add it
-        self.leaderboard.rank_member('tweet_%s' % self.leaderboard_index, followers, data)
-        self.leaderboard_index += 1
+        index_to_add = bisect.bisect(self.leaderboard, tweet['followers'])
+        self.leaderboard.insert(index_to_add, tweet)
 
-    def get_leaderboard(self):
-
-        result = []
-        count = self.leaderboard.total_members()
-
-        for i in range(1,count):
-            
-            tweet = self.leaderboard.member_at(i)
-            data = ast.literal_eval(self.leaderboard.member_data_for(tweet['tweet']))
-
-            data['rank'] = tweet['rank']
-            data['followers'] = tweet['followers']
-
-            result.append(data)
-
-        return result
