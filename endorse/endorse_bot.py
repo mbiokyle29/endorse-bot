@@ -6,6 +6,9 @@ import tweepy
 import datetime
 import json
 import bisect
+import logging
+
+log = logging.getLogger(__name__)
 
 class EndorseBot(object):
 
@@ -28,13 +31,23 @@ class EndorseBot(object):
         self.leaderboard = []
         self.leaderboard_size = leaderboard_size
 
+    def __repr__(self):
+        return "<EndorseBot| query:{} | daysback: {}| size: {}>".format(
+            self.query, self.days_back, self.leaderboard_size)
+
     def build_leaderboard(self):
+        
+        log.info("leaderboard build starting")
+        log.info("last build: %s", str(self.last_run))
 
         if self.last_run != None:
+            
             time_diff = (datetime.datetime.now() - self.last_run).total_seconds()
+            log.info("Time since last build: %i", time_diff)
 
             # 15 min update
             if time_diff >= (60 * 15):
+                log.info("Not building, happened less than 15 mins ago")
                 self.last_run = datetime.datetime.now()
                 return self.leaderboard
         try:
@@ -94,6 +107,7 @@ class EndorseBot(object):
                     self.add_tweet(tweet)
 
         except tweepy.TweepError:
+            log.info("Twitter useage cutoff -- sending what we have")
             self.last_run = datetime.datetime.now()
             return self.leaderboard
 

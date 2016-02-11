@@ -26,7 +26,7 @@ if consumer_secret is None:
     log.warn("twitter API consumer secret not set!, ($TWITTER_API_SECRET)")
     raise SystemExit
 
-bot = EndorseBot(consumer_key, consumer_secret, "endorses @BernieSanders", 1, 10)
+bot = EndorseBot(consumer_key, consumer_secret, "endorses @BernieSanders", 10, 1000)
 log.info("BOT: %s", str(bot))
 
 app = Flask(__name__)
