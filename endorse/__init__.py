@@ -6,8 +6,7 @@ import tweepy
 from flask import Flask, current_app, jsonify, request
 from flask.ext.sqlalchemy import SQLAlchemy
 from sqlalchemy import desc
-from multiprocessing import Process
-from multiprocessing.util import register_after_fork
+
 
 # configure log
 log = logging.getLogger(__name__)
@@ -40,16 +39,13 @@ from endorse.models import Tweet
 db.create_all()
 
 from endorse.endorse_bot import EndorseBot
+
 bot = EndorseBot(consumer_key, consumer_secret, 
                  "endorse @BernieSanders", 20, 1000, session)
 
-def worker(bot):
-    bot.work()
-
-register_after_fork(db, db.get_engine(app).dispose)
-p = Process(target=worker, args=(bot,))
-p.start()
-p.join()
+log.info("Collecting historical tweet info")
+bot.work()
+log.info("Done collecting!")
 
 @app.route("/")
 def root():
@@ -60,7 +56,6 @@ def root():
 def add_tweet():
 
     json = request.get_json()
-    print json
     t_id = json.get('tweet_id')
     text = json.get('text')
     followers = json.get('followers')
@@ -69,4 +64,4 @@ def add_tweet():
     t = Tweet(t_id, text, followers, author)
     session.add(t)
     session.commit()
-    return "OK  "
+    return "OK"

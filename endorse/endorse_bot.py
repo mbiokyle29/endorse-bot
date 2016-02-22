@@ -61,11 +61,16 @@ class EndorseBot(object):
                 created_at = res.created_at
                 tweet_id = res.id
 
+                if res.geo is not None:
+                    geo = str(res.geo)
+                else:
+                    geo = "< No Geo Info >"
+
                 # skip if its in the DB already
                 if self.session.query(Tweet).get(tweet_id) is not None:
                     return
 
-                tweet = Tweet(tweet_id, text, followers, author)
+                tweet = Tweet(tweet_id, text, followers, author, geo)
 
                 time_diff = datetime.datetime.now() - res.created_at
                 if time_diff.days == self.days_back:
